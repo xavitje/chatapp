@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="nl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registreren - FastAPI Chat App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        const theme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+    </script>
+    <style>
+        [data-theme="light"] body {
+            background-color: #f3f4f6 !important;
+            color: #111827 !important;
+        }
+        [data-theme="light"] .bg-gray-800 {
+            background-color: #ffffff !important;
+            border: 1px solid #e5e7eb;
+        }
+        [data-theme="light"] .bg-gray-700 {
+            background-color: #f9fafb !important;
+            color: #111827 !important;
+            border: 1px solid #e5e7eb;
+        }
+        [data-theme="light"] .text-gray-100, [data-theme="light"] .text-white {
+            color: #111827 !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
+        <h1 class="text-3xl font-bold text-indigo-400 mb-6 text-center">Registreren</h1>
+
+        <form id="register-form" class="space-y-4">
+            <div>
+                <label for="username" class="block text-sm font-semibold mb-2">Gebruikersnaam</label>
+                <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    required
+                    minlength="3"
+                    class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-indigo-500"
+                    placeholder="Kies een gebruikersnaam (minimaal 3 tekens)"
+                >
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-semibold mb-2">Wachtwoord</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    required
+                    minlength="6"
+                    class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-indigo-500"
+                    placeholder="Kies een wachtwoord (minimaal 6 tekens)"
+                >
+            </div>
+
+            <div>
+                <label for="confirm-password" class="block text-sm font-semibold mb-2">Bevestig wachtwoord</label>
+                <input
+                    type="password"
+                    id="confirm-password"
+                    name="confirm-password"
+                    required
+                    class="w-full p-3 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-indigo-500"
+                    placeholder="Bevestig je wachtwoord"
+                >
+            </div>
+
+            <div id="error-message" class="hidden text-red-500 text-sm"></div>
+            <div id="success-message" class="hidden text-green-500 text-sm"></div>
+
+            <button
+                type="submit"
+                class="w-full p-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition duration-150"
+            >
+                Registreren
+            </button>
+        </form>
+
+        <p class="mt-6 text-center text-sm">
+            Heb je al een account?
+            <a href="/login" class="text-indigo-400 hover:text-indigo-300 font-semibold">Login hier</a>
+        </p>
+    </div>
+
+    <script>
+        const registerForm = document.getElementById('register-form');
+        const errorMessage = document.getElementById('error-message');
+        const successMessage = document.getElementById('success-message');
+
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            // Clear previous messages
+            errorMessage.classList.add('hidden');
+            successMessage.classList.add('hidden');
+
+            // Validate passwords match
+            if (password !== confirmPassword) {
+                errorMessage.textContent = 'Wachtwoorden komen niet overeen';
+                errorMessage.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch('/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    successMessage.textContent = data.message || 'Registratie succesvol! Je wordt doorgestuurd naar de login pagina...';
+                    successMessage.classList.remove('hidden');
+
+                    // Redirect to login after 2 seconds
+                    setTimeout(() => {
+                        window.location.href = '/login';
+                    }, 2000);
+                } else {
+                    const error = await response.json();
+                    errorMessage.textContent = error.detail || 'Registratie mislukt';
+                    errorMessage.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                errorMessage.textContent = 'Er is een fout opgetreden. Probeer het opnieuw.';
+                errorMessage.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1726 @@
+<!DOCTYPE html>
+<html lang="nl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastAPI Modern Chat App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Load theme before anything else
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+    </script>
+    <script src="/static/theme-toggle.js"></script>
+    <script src="/static/notifications.js"></script>
+    <script src="/static/emoji-picker.js"></script>
+    <script src="/static/typing-indicator.js"></script>
+    <script src="/static/crypto.js"></script>
+    <script src="/static/webrtc.js"></script>
+    <style>
+        /* Theme Variables */
+        :root {
+            --bg-primary: #111827;
+            --bg-secondary: #1f2937;
+            --bg-tertiary: #374151;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f3f4f6;
+            --bg-tertiary: #e5e7eb;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+        }
+
+        /* Apply theme colors */
+        body[data-theme-applied] {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        [data-theme="light"] body {
+            background-color: #f3f4f6 !important;
+            color: #111827 !important;
+        }
+
+        [data-theme="light"] .bg-gray-900 {
+            background-color: #f3f4f6 !important;
+        }
+
+        [data-theme="light"] .bg-gray-800 {
+            background-color: #ffffff !important;
+            border: 1px solid #e5e7eb;
+        }
+
+        [data-theme="light"] .bg-gray-700 {
+            background-color: #f9fafb !important;
+            color: #111827 !important;
+        }
+
+        [data-theme="light"] .text-gray-100 {
+            color: #111827 !important;
+        }
+
+        [data-theme="light"] .text-gray-400 {
+            color: #6b7280 !important;
+        }
+
+        [data-theme="light"] .border-gray-700 {
+            border-color: #e5e7eb !important;
+        }
+
+        /* Custom scrollbar */
+        .chat-area::-webkit-scrollbar {
+            width: 8px;
+        }
+        .chat-area::-webkit-scrollbar-thumb {
+            background-color: #4a5568;
+            border-radius: 4px;
+        }
+        .chat-area {
+            scrollbar-width: thin;
+            scrollbar-color: #4a5568 transparent;
+        }
+
+        [data-theme="light"] .chat-area::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen flex" data-theme-applied>
+
+    <div class="w-64 bg-gray-800 p-4 flex-shrink-0 flex flex-col">
+        <h2 class="text-xl font-bold mb-6 text-indigo-400">Navigatie</h2>
+        <div class="flex-grow">
+            <h3 class="text-sm font-semibold text-gray-400 mb-2">CHAT KAMERS</h3>
+            <ul id="room-list" class="space-y-2 mb-6">
+                <li>
+                    <a href="/chat/general" class="block p-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 font-semibold transition duration-150"># Algemeen</a>
+                </li>
+                <li>
+                    <a href="/chat/dev-team" class="block p-2 rounded-lg hover:bg-gray-700 transition duration-150"># Dev Team</a>
+                </li>
+            </ul>
+            <h3 class="text-sm font-semibold text-gray-400 mb-2">DIRECTE BERICHTEN</h3>
+            <ul class="space-y-2 mb-6">
+                <li>
+                    <a href="/direct-messages" class="block p-2 rounded-lg hover:bg-gray-700 transition duration-150">💬 Directe Berichten</a>
+                </li>
+            </ul>
+
+            <h3 class="text-sm font-semibold text-gray-400 mb-2">CALL ROOMS</h3>
+            <ul id="call-rooms-list" class="space-y-2 mb-6">
+                <!-- Call rooms will be populated here -->
+            </ul>
+
+            <h3 class="text-sm font-semibold text-gray-400 mb-2">ONLINE GEBRUIKERS</h3>
+            <ul id="online-users-list" class="space-y-2 mb-6">
+                <!-- Online users will be populated here -->
+            </ul>
+        </div>
+        <div class="mt-auto pt-4 border-t border-gray-700 space-y-2">
+            <div class="flex items-center space-x-2">
+                <img id="user-avatar" src="/static/default-avatar.svg" class="w-8 h-8 rounded-full" alt="Avatar">
+                <p class="text-sm font-semibold">Ingelogd als: <span id="username-display" class="text-indigo-400">Gast</span></p>
+            </div>
+            <button onclick="openSettings()" class="w-full p-2 bg-indigo-600 rounded-lg text-sm hover:bg-indigo-700 transition">⚙️ Instellingen</button>
+            <button onclick="openCreateRoom()" class="w-full p-2 bg-green-600 rounded-lg text-sm hover:bg-green-700 transition">➕ Kamer Aanmaken</button>
+            <button onclick="logout()" class="w-full p-2 bg-red-600 rounded-lg text-sm hover:bg-red-700 transition">Uitloggen</button>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold mb-4 text-indigo-400">Instellingen</h2>
+
+            <div class="space-y-4">
+                <!-- Avatar Upload -->
+                <div>
+                    <label class="block text-sm font-semibold mb-2">Profiel Foto</label>
+                    <div class="flex items-center space-x-4">
+                        <img id="settings-avatar-preview" src="/static/default-avatar.svg" class="w-16 h-16 rounded-full" alt="Avatar">
+                        <input type="file" id="avatar-upload" accept="image/*" class="text-sm">
+                    </div>
+                </div>
+
+                <!-- Theme Toggle -->
+                <div>
+                    <label class="block text-sm font-semibold mb-2">Thema</label>
+                    <div class="flex items-center space-x-4">
+                        <button id="theme-dark-btn" class="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition">🌙 Donker</button>
+                        <button id="theme-light-btn" class="px-4 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition">☀️ Licht</button>
+                    </div>
+                </div>
+
+                <!-- Notifications Toggle -->
+                <div class="flex items-center justify-between">
+                    <label class="text-sm font-semibold">Notificaties</label>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="notifications-toggle" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="mt-6 flex space-x-3">
+                <button onclick="saveSettings()" class="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition">Opslaan</button>
+                <button onclick="closeSettings()" class="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">Annuleren</button>
+            </div>
+            <div class="mt-3">
+                <button onclick="logout()" class="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition">Uitloggen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Room Modal -->
+    <div id="create-room-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold mb-4 text-indigo-400">Nieuwe Kamer Aanmaken</h2>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-2">Type Kamer</label>
+                    <div class="flex space-x-4">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="room-type" value="chat" checked class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500">
+                            <span>💬 Chat Room</span>
+                        </label>
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="radio" name="room-type" value="call" class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-500">
+                            <span>📞 Call Room</span>
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-2">Kamer Naam</label>
+                    <input type="text" id="room-name" placeholder="Bijv: Project Team" class="w-full p-2 bg-gray-700 rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-2">Kamer Slug (URL)</label>
+                    <input type="text" id="room-slug" placeholder="bijv: project-team" class="w-full p-2 bg-gray-700 rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500">
+                    <p class="text-xs text-gray-400 mt-1">Alleen letters, cijfers en koppeltekens</p>
+                </div>
+                <div id="call-room-options" class="hidden">
+                    <label class="flex items-center space-x-2 cursor-pointer">
+                        <input type="checkbox" id="call-room-public" checked class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500">
+                        <span class="text-sm">Publieke call room (iedereen kan joinen)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="mt-6 flex space-x-3">
+                <button onclick="createRoom()" class="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">Aanmaken</button>
+                <button onclick="closeCreateRoom()" class="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">Annuleren</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite User Modal -->
+    <div id="invite-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold mb-4 text-indigo-400">Gebruiker Uitnodigen</h2>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-2">Gebruikersnaam</label>
+                    <input type="text" id="invite-username" placeholder="Gebruikersnaam" class="w-full p-2 bg-gray-700 rounded-lg border border-gray-600 focus:outline-none focus:border-indigo-500">
+                </div>
+                <div id="available-users" class="max-h-40 overflow-y-auto space-y-1">
+                    <!-- Available users will be loaded here -->
+                </div>
+            </div>
+
+            <div class="mt-6 flex space-x-3">
+                <button onclick="inviteUser()" class="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">Uitnodigen</button>
+                <button onclick="closeInviteModal()" class="flex-1 bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">Annuleren</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-grow flex flex-col">
+        <header class="p-4 bg-gray-800 shadow-md">
+            <div class="flex justify-between items-center mb-3">
+                <h1 class="text-2xl font-bold text-white">Kamer: <span id="current-room" class="text-indigo-400"># Algemeen</span></h1>
+                <div class="flex items-center space-x-3">
+                    <button id="invite-btn" onclick="openInviteModal()" class="hidden px-3 py-1 bg-green-600 rounded-lg text-sm hover:bg-green-700 transition">➕ Uitnodigen</button>
+                    <button onclick="openCreateRoom()" class="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition" title="Kamer aanmaken">➕</button>
+                    <span id="status" class="text-sm text-yellow-500">Verbinding verbreken...</span>
+                    <button onclick="openSettings()" class="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition" title="Instellingen">⚙️</button>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="flex space-x-2">
+                <input
+                    type="text"
+                    id="search-input"
+                    placeholder="🔍 Zoek berichten in deze kamer..."
+                    class="flex-1 p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-indigo-500 text-sm"
+                    autocomplete="off"
+                >
+                <button onclick="searchMessages()" class="px-4 py-2 bg-indigo-600 rounded-lg text-sm hover:bg-indigo-700 transition">Zoeken</button>
+            </div>
+
+            <!-- Search Results -->
+            <div id="search-results" class="hidden mt-3 bg-gray-700 rounded-lg p-3 max-h-60 overflow-y-auto">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-semibold text-indigo-400" id="search-count"></span>
+                    <button onclick="closeSearch()" class="text-gray-400 hover:text-white text-sm">✕ Sluiten</button>
+                </div>
+                <div id="search-results-list" class="space-y-2"></div>
+            </div>
+        </header>
+
+        <div id="messages" class="chat-area flex-grow p-4 space-y-4 overflow-y-auto">
+            </div>
+
+        <div class="p-4 bg-gray-800 border-t border-gray-700">
+            <!-- Typing Indicator -->
+            <div id="typing-indicator" class="hidden text-sm text-gray-400 italic mb-2"></div>
+
+            <!-- Reply Context -->
+            <div id="reply-context" class="hidden bg-gray-700 p-3 rounded-lg mb-2 flex items-center justify-between">
+                <div class="flex-1">
+                    <div class="text-xs text-indigo-400 font-semibold">Reageren op <span id="reply-username"></span></div>
+                    <div class="text-sm text-gray-300 truncate" id="reply-content"></div>
+                </div>
+                <button type="button" onclick="cancelReply()" class="ml-2 text-gray-400 hover:text-white">
+                    ✕
+                </button>
+            </div>
+
+            <!-- File preview area -->
+            <div id="file-preview-container" class="hidden mb-3 p-3 bg-gray-600 rounded-lg">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-semibold text-gray-300">Bestand toegevoegd:</span>
+                    <button type="button" onclick="clearFilePreview()" class="text-red-400 hover:text-red-300 text-sm font-semibold">
+                        ✕ Verwijderen
+                    </button>
+                </div>
+                <div id="file-preview-content" class="flex items-center space-x-3">
+                    <!-- Preview will be inserted here -->
+                </div>
+            </div>
+
+            <form id="message-form" class="flex space-x-3">
+                <button
+                    type="button"
+                    id="emoji-btn"
+                    class="p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition text-2xl"
+                    title="Emoji toevoegen"
+                >
+                    😀
+                </button>
+                <button
+                    type="button"
+                    id="file-btn"
+                    class="p-3 bg-gray-700 rounded-lg hover:bg-gray-600 transition text-2xl"
+                    title="Bestand uploaden"
+                    onclick="document.getElementById('file-input').click()"
+                >
+                    📎
+                </button>
+                <input
+                    type="file"
+                    id="file-input"
+                    class="hidden"
+                    onchange="handleFileSelect(event)"
+                >
+                <input
+                    type="text"
+                    id="message-input"
+                    placeholder="Typ een bericht..."
+                    class="flex-grow p-3 rounded-lg bg-gray-700 text-white border border-gray-700 focus:outline-none focus:border-indigo-500"
+                    autocomplete="off"
+                >
+                <button
+                    type="submit"
+                    class="p-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition duration-150"
+                >
+                    Verzenden
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // --- Check Authentication ---
+        const token = localStorage.getItem('access_token');
+        const username = localStorage.getItem('username');
+
+        if (!token) {
+            // Redirect to login if no token
+            window.location.href = '/login';
+        }
+
+        // Update username display
+        if (username) {
+            document.getElementById('username-display').textContent = username;
+        }
+
+        // --- Configuratie ---
+        // Haalt de room_slug op uit de URL (We gaan /chat/{room_slug} gebruiken)
+        const roomSlug = window.location.pathname.split('/').pop() || 'general';
+        const ws_url = `ws://${window.location.host}/api/ws/chat/${roomSlug}`;
+
+        // --- DOM Elementen ---
+        const messageInput = document.getElementById('message-input');
+        const messageForm = document.getElementById('message-form');
+        const messagesContainer = document.getElementById('messages');
+        const statusElement = document.getElementById('status');
+        const currentRoomElement = document.getElementById('current-room');
+
+        currentRoomElement.textContent = `# ${roomSlug}`;
+
+        // Show invite button only for non-default rooms
+        const inviteBtn = document.getElementById('invite-btn');
+        if (roomSlug !== 'general' && roomSlug !== 'dev-team') {
+            inviteBtn.classList.remove('hidden');
+        }
+
+        let ws;
+
+        function createMessageElement(data) {
+            // 1. Probeer te parsen als JSON (voor echte berichten)
+            let messageObject;
+            try {
+                messageObject = JSON.parse(data);
+            } catch (e) {
+                // 2. Als JSON faalt, is het een simpele systeemmelding (tekst)
+                const isSystemMessage = data.startsWith('**');
+
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'text-center text-sm italic text-gray-500';
+                messageDiv.textContent = data.replace(/\*\*/g, '');
+                return messageDiv;
+            }
+
+            // Verwerk het JSON bericht - container with reply button on the left
+            const outerContainer = document.createElement('div');
+            outerContainer.className = 'flex items-start space-x-2 max-w-lg';
+
+            // Reply button (links)
+            const replyBtn = document.createElement('button');
+            replyBtn.className = 'text-lg text-gray-500 hover:text-indigo-400 transition-colors flex-shrink-0 mt-3';
+            replyBtn.textContent = '↩️';
+            replyBtn.title = 'Reageren op dit bericht';
+            replyBtn.onclick = () => {
+                setReplyContext(messageObject.id, messageObject.username, messageObject.content);
+            };
+
+            // Message div (rechts)
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'flex items-start space-x-3 p-3 bg-gray-700 rounded-lg shadow-md flex-1';
+            messageDiv.setAttribute('data-message-id', messageObject.id);
+
+            // Add avatar
+            const avatarImg = document.createElement('img');
+            avatarImg.src = messageObject.avatar_url || '/static/default-avatar.svg';
+            avatarImg.className = 'w-8 h-8 rounded-full flex-shrink-0';
+            avatarImg.alt = messageObject.username;
+
+            // Message content container
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'flex-1 min-w-0';
+
+            // Header with username and timestamp
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'flex items-baseline space-x-2 mb-1';
+
+            const senderSpan = document.createElement('span');
+            senderSpan.className = 'font-bold text-indigo-400';
+            senderSpan.textContent = messageObject.username;
+
+            const timestampSpan = document.createElement('span');
+            timestampSpan.className = 'text-xs text-gray-400';
+            const timestamp = new Date(messageObject.timestamp);
+            timestampSpan.textContent = timestamp.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+
+            headerDiv.appendChild(senderSpan);
+            headerDiv.appendChild(timestampSpan);
+
+            // Reply context if this is a reply
+            if (messageObject.reply_to) {
+                const replyDiv = document.createElement('div');
+                replyDiv.className = 'bg-gray-600 p-2 rounded mb-2 text-xs border-l-2 border-indigo-400 cursor-pointer hover:bg-gray-500 transition-colors';
+                replyDiv.title = 'Klik om naar origineel bericht te gaan';
+                replyDiv.onclick = () => scrollToMessage(messageObject.reply_to.id);
+
+                const replyText = document.createElement('div');
+                replyText.className = 'text-gray-400';
+                replyText.innerHTML = `<span class="font-semibold">${messageObject.reply_to.username}</span>: ${messageObject.reply_to.content}`;
+
+                replyDiv.appendChild(replyText);
+                contentDiv.appendChild(replyDiv);
+            }
+
+            // Message content
+            const contentP = document.createElement('p');
+            contentP.className = 'text-gray-100 break-words';
+            contentP.textContent = messageObject.content;
+
+            contentDiv.appendChild(headerDiv);
+            contentDiv.appendChild(contentP);
+
+            // File attachments
+            if (messageObject.attachments && messageObject.attachments.length > 0) {
+                messageObject.attachments.forEach(attachment => {
+                    const attachDiv = document.createElement('div');
+                    attachDiv.className = 'mt-2 bg-gray-600 p-2 rounded flex items-center space-x-2';
+
+                    // File icon based on type
+                    const fileIcon = attachment.content_type.startsWith('image/') ? '🖼️' : '📎';
+                    const iconSpan = document.createElement('span');
+                    iconSpan.textContent = fileIcon;
+
+                    // File link
+                    const fileLink = document.createElement('a');
+                    fileLink.href = attachment.file_path;
+                    fileLink.target = '_blank';
+                    fileLink.className = 'text-indigo-300 hover:text-indigo-200 text-sm flex-1 truncate';
+                    fileLink.textContent = attachment.original_filename;
+
+                    // File size
+                    const sizeSpan = document.createElement('span');
+                    sizeSpan.className = 'text-xs text-gray-400';
+                    const sizeMB = (attachment.file_size / (1024 * 1024)).toFixed(2);
+                    sizeSpan.textContent = `${sizeMB} MB`;
+
+                    attachDiv.appendChild(iconSpan);
+                    attachDiv.appendChild(fileLink);
+                    attachDiv.appendChild(sizeSpan);
+                    contentDiv.appendChild(attachDiv);
+
+                    // Show image preview if it's an image
+                    if (attachment.content_type.startsWith('image/')) {
+                        const imgPreview = document.createElement('img');
+                        imgPreview.src = attachment.file_path;
+                        imgPreview.className = 'mt-2 rounded max-w-xs max-h-60 cursor-pointer';
+                        imgPreview.onclick = () => window.open(attachment.file_path, '_blank');
+                        contentDiv.appendChild(imgPreview);
+                    }
+                });
+            }
+
+            messageDiv.appendChild(avatarImg);
+            messageDiv.appendChild(contentDiv);
+
+            // Assemble: reply button (left) + message (right)
+            outerContainer.appendChild(replyBtn);
+            outerContainer.appendChild(messageDiv);
+
+            return outerContainer;
+        }
+        async function fetchHistory() {
+            try {
+                const historyUrl = `/api/rooms/${roomSlug}/history`;
+                const response = await fetch(historyUrl);
+
+                if (response.ok) {
+                    const messages = await response.json();
+
+                    messages.forEach(msg => {
+                        // We moeten het Pydantic object weer JSON maken om de createMessageElement te hergebruiken
+                        const messageElement = createMessageElement(JSON.stringify(msg));
+                        messagesContainer.appendChild(messageElement);
+                    });
+
+                    scrollToBottom();
+                } else {
+                    console.error("Fout bij ophalen geschiedenis:", response.status);
+                }
+            } catch (error) {
+                console.error("Netwerkfout bij ophalen geschiedenis:", error);
+            }
+        }
+
+        // Scrolt automatisch naar het meest recente bericht
+        function scrollToBottom() {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function connectWebSocket() {
+            statusElement.textContent = 'Verbinding maken...';
+            statusElement.className = 'text-sm text-yellow-500';
+
+            ws = new WebSocket(ws_url);
+
+            // Bij het succesvol verbinden
+            ws.onopen = (e) => {
+                console.log("WebSocket Verbonden!");
+                // Send authentication token first
+                ws.send(JSON.stringify({ token: token }));
+                statusElement.textContent = 'Verbonden';
+                statusElement.className = 'text-sm text-green-500';
+
+                // Initialize typing indicator after connection
+                if (!wsInitialized) {
+                    initializeTypingIndicator();
+                    initializeCallManager();
+                    wsInitialized = true;
+                }
+            };
+
+            const currentUsername = username;
+
+            function initializeTypingIndicator() {
+                typingIndicator = new TypingIndicator(ws, currentUsername, roomSlug);
+
+                // Add typing event listeners
+                messageInput.addEventListener('input', () => {
+                    if (typingIndicator) {
+                        typingIndicator.startTyping();
+                    }
+                });
+
+                messageInput.addEventListener('blur', () => {
+                    if (typingIndicator) {
+                        typingIndicator.stopTyping();
+                    }
+                });
+            }
+
+            // Bij het ontvangen van een bericht
+            ws.onmessage = (e) => {
+                const data = e.data;
+
+                // Check if it's a typing indicator or online status
+                try {
+                    const parsed = JSON.parse(data);
+
+                    // Handle typing indicator
+                    if (parsed.type === 'typing') {
+                        if (typingIndicator) {
+                            typingIndicator.handleTypingStatus(parsed.username, parsed.isTyping);
+                        }
+                        return;
+                    }
+
+                    // Handle online status updates
+                    if (parsed.type === 'online_status') {
+                        updateOnlineUsers(parsed.online_users);
+                        return;
+                    }
+
+                    // Handle WebRTC signaling messages
+                    if (parsed.type === 'existing-participants') {
+                        console.log('WebSocket: Received existing-participants', parsed);
+                        if (callManager) {
+                            callManager.handleExistingParticipants(parsed);
+                        }
+                        return;
+                    }
+                    if (parsed.type === 'peer-joined') {
+                        console.log('WebSocket: Received peer-joined', parsed);
+                        if (callManager) {
+                            callManager.handlePeerJoined(parsed);
+                        }
+                        return;
+                    }
+                    if (parsed.type === 'peer-left') {
+                        console.log('WebSocket: Received peer-left', parsed);
+                        if (callManager) {
+                            callManager.handlePeerLeft(parsed);
+                        }
+                        return;
+                    }
+                    if (parsed.type === 'call-offer') {
+                        if (callManager) {
+                            callManager.handleCallOffer(parsed);
+                        }
+                        return;
+                    }
+                    if (parsed.type === 'call-answer') {
+                        if (callManager) {
+                            callManager.handleCallAnswer(parsed);
+                        }
+                        return;
+                    }
+                    if (parsed.type === 'ice-candidate') {
+                        if (callManager) {
+                            callManager.handleIceCandidate(parsed);
+                        }
+                        return;
+                    }
+
+                    // Only process message type
+                    if (parsed.type && parsed.type !== 'message') {
+                        return; // Ignore other message types
+                    }
+
+                    // Show notification for new message
+                    if (notificationManager && parsed.username && parsed.username !== currentUsername) {
+                        notificationManager.show(
+                            `Nieuw bericht van ${parsed.username}`,
+                            {
+                                body: parsed.content,
+                                tag: 'chat-message'
+                            }
+                        );
+                    }
+                } catch (e) {
+                    // Not a typing indicator or structured message
+                }
+
+                const messageElement = createMessageElement(data);
+                messagesContainer.appendChild(messageElement);
+                scrollToBottom();
+            };
+
+            // Bij het sluiten van de verbinding
+            ws.onclose = (e) => {
+                console.log("WebSocket Gesloten.", e);
+                // Only show reconnecting status if it was an unexpected close
+                if (e.code !== 1000) {
+                    statusElement.textContent = 'Opnieuw verbinden...';
+                    statusElement.className = 'text-sm text-yellow-500';
+                    // Probeer na 5 seconden opnieuw verbinding te maken
+                    setTimeout(connectWebSocket, 5000);
+                }
+            };
+
+            // Bij fouten
+            ws.onerror = (e) => {
+                console.error("WebSocket Fout:", e);
+                ws.close();
+            };
+        }
+
+        // Store selected file temporarily
+        let pendingFile = null;
+
+        // Formulier afhandeling (bericht versturen)
+        messageForm.onsubmit = async (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+
+            // Check if we have a message or a file
+            if (!message && !pendingFile) {
+                return; // Nothing to send
+            }
+
+            // If we have a file, upload it first
+            if (pendingFile) {
+                await handleFileUploadWithMessage(message);
+                return;
+            }
+
+            // Regular text message
+            if (message && ws && ws.readyState === WebSocket.OPEN) {
+                // Send as JSON to match backend expectations
+                const messageData = {
+                    type: 'message',
+                    content: message
+                };
+
+                // Add reply_to_id if replying
+                if (replyToMessageId) {
+                    messageData.reply_to_id = replyToMessageId;
+                }
+
+                ws.send(JSON.stringify(messageData));
+                messageInput.value = '';
+
+                // Clear reply context
+                cancelReply();
+
+                // Stop typing indicator
+                if (typingIndicator) {
+                    typingIndicator.stopTyping();
+                }
+            }
+        };
+
+        // Initialize features
+        let notificationManager;
+        let typingIndicator;
+        let emojiPicker;
+        let wsInitialized = false;
+        let replyToMessageId = null;
+        let cryptoManager = null;
+        let callManager = null;
+
+        // Initialize crypto manager if available
+        try {
+            if (typeof E2ECrypto !== 'undefined') {
+                cryptoManager = new E2ECrypto();
+            }
+        } catch (error) {
+            console.warn('E2E Crypto not available:', error);
+        }
+
+        // Start de WebSocket-verbinding zodra de pagina geladen is
+        window.onload = async () => {
+            await loadUserProfile();
+            await initializeE2EEncryption();
+            await loadRooms();
+            await loadCallRooms();
+            fetchHistory();
+            initializeBasicFeatures();
+            connectWebSocket();
+            await fetchOnlineUsers();
+        };
+
+        function initializeBasicFeatures() {
+            // Initialize notification manager
+            notificationManager = new NotificationManager();
+
+            // Initialize emoji picker
+            const emojiBtn = document.getElementById('emoji-btn');
+            if (emojiBtn && messageInput) {
+                emojiPicker = new EmojiPicker(messageInput, emojiBtn);
+            }
+        }
+
+        // Initialize E2E Encryption
+        async function initializeE2EEncryption() {
+            if (!cryptoManager) {
+                console.log('E2E encryption not available, skipping');
+                return;
+            }
+
+            try {
+                // Check if user has existing keys
+                if (!cryptoManager.hasKeys()) {
+                    console.log('Generating new encryption keys...');
+                    const publicKey = await cryptoManager.generateKeyPair();
+
+                    // Store public key on server
+                    try {
+                        const response = await fetch('/api/profile/public-key', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ public_key: publicKey })
+                        });
+
+                        if (response.ok) {
+                            console.log('✅ E2E encryption keys generated and stored');
+                        } else {
+                            console.warn('Failed to store public key on server');
+                        }
+                    } catch (error) {
+                        console.error('Error storing public key:', error);
+                    }
+                } else {
+                    // Load existing keys
+                    await cryptoManager.loadPrivateKey();
+                    console.log('✅ E2E encryption keys loaded');
+                }
+            } catch (error) {
+                console.error('E2E encryption initialization failed:', error);
+                console.log('Continuing without E2E encryption');
+            }
+        }
+
+        // Update online users list
+        let onlineUsers = new Set();
+
+        function updateOnlineUsers(users) {
+            onlineUsers = new Set(users);
+
+            // Refresh the entire online users list
+            fetchOnlineUsers();
+        }
+
+        async function fetchOnlineUsers() {
+            try {
+                const response = await fetch('/api/users/online', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const users = await response.json();
+                    renderOnlineUsersList(users);
+                    const usernames = users.map(u => u.username);
+                    updateOnlineUsers(usernames);
+                }
+            } catch (error) {
+                console.error('Error fetching online users:', error);
+            }
+        }
+
+        function renderOnlineUsersList(users) {
+            const onlineUsersList = document.getElementById('online-users-list');
+            if (!onlineUsersList) return;
+
+            onlineUsersList.innerHTML = '';
+
+            if (users.length === 0) {
+                const emptyLi = document.createElement('li');
+                emptyLi.className = 'text-sm text-gray-500 italic px-2';
+                emptyLi.textContent = 'Geen online gebruikers';
+                onlineUsersList.appendChild(emptyLi);
+                return;
+            }
+
+            users.forEach(user => {
+                const li = document.createElement('li');
+                li.setAttribute('data-username', user.username);
+
+                const div = document.createElement('div');
+                div.className = 'flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-700 transition duration-150';
+
+                // Avatar
+                const img = document.createElement('img');
+                img.src = user.avatar_url || '/static/default-avatar.svg';
+                img.className = 'w-6 h-6 rounded-full';
+                img.alt = user.username;
+
+                // Status dot
+                const statusDot = document.createElement('div');
+                statusDot.className = `status-dot w-2 h-2 rounded-full ${user.is_online ? 'bg-green-500' : 'bg-gray-500'}`;
+
+                // Username
+                const span = document.createElement('span');
+                span.className = 'text-sm flex-1';
+                span.textContent = user.username;
+
+                // Build the user item
+                div.appendChild(img);
+                div.appendChild(statusDot);
+                div.appendChild(span);
+
+                // No call buttons on individual users anymore
+                // Users can join call rooms instead
+
+                li.appendChild(div);
+                onlineUsersList.appendChild(li);
+            });
+        }
+
+        async function loadUserProfile() {
+            try {
+                const response = await fetch('/api/profile/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const profile = await response.json();
+                    document.getElementById('user-avatar').src = profile.avatar_url;
+                    document.getElementById('settings-avatar-preview').src = profile.avatar_url;
+
+                    // Apply theme
+                    if (profile.theme_preference) {
+                        setTheme(profile.theme_preference);
+                    }
+
+                    // Set notifications toggle
+                    if (profile.notifications_enabled !== undefined) {
+                        document.getElementById('notifications-toggle').checked = profile.notifications_enabled;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+
+        async function loadRooms() {
+            try {
+                const response = await fetch('/api/rooms', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const rooms = await response.json();
+                    const roomList = document.getElementById('room-list');
+                    roomList.innerHTML = '';
+
+                    rooms.forEach(room => {
+                        const li = document.createElement('li');
+                        const a = document.createElement('a');
+                        a.href = `/chat/${room.slug}`;
+                        a.className = `block p-2 rounded-lg ${room.slug === roomSlug ? 'bg-indigo-600' : 'hover:bg-gray-700'} transition duration-150`;
+                        a.textContent = `# ${room.name}`;
+                        li.appendChild(a);
+                        roomList.appendChild(li);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading rooms:', error);
+            }
+        }
+
+        async function loadCallRooms() {
+            try {
+                const response = await fetch('/api/call-rooms', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const callRooms = await response.json();
+                    console.log('Loaded call rooms:', callRooms);
+                    renderCallRoomsList(callRooms);
+                } else {
+                    console.error('Failed to load call rooms:', response.status, await response.text());
+                }
+            } catch (error) {
+                console.error('Error loading call rooms:', error);
+            }
+        }
+
+        function renderCallRoomsList(callRooms) {
+            const callRoomsList = document.getElementById('call-rooms-list');
+            if (!callRoomsList) return;
+
+            callRoomsList.innerHTML = '';
+
+            if (callRooms.length === 0) {
+                const emptyLi = document.createElement('li');
+                emptyLi.className = 'text-sm text-gray-500 italic px-2';
+                emptyLi.textContent = 'Geen call rooms beschikbaar';
+                callRoomsList.appendChild(emptyLi);
+                return;
+            }
+
+            callRooms.forEach(room => {
+                const li = document.createElement('li');
+
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between p-2 rounded-lg hover:bg-gray-700 transition duration-150';
+
+                // Room name and icon
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'flex items-center space-x-2 flex-1';
+
+                const icon = document.createElement('span');
+                icon.textContent = room.is_public ? '🔊' : '🔒';
+
+                const name = document.createElement('span');
+                name.className = 'text-sm font-medium';
+                name.textContent = room.name;
+
+                nameDiv.appendChild(icon);
+                nameDiv.appendChild(name);
+
+                // Join buttons
+                const joinButtons = document.createElement('div');
+                joinButtons.className = 'flex space-x-1';
+
+                // Video join button
+                const videoBtn = document.createElement('button');
+                videoBtn.innerHTML = '📹';
+                videoBtn.className = 'text-sm hover:bg-green-600 p-1 rounded';
+                videoBtn.title = 'Join met video';
+                videoBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    joinCallRoomWithVideo(room.slug, room.name);
+                };
+
+                // Audio join button
+                const audioBtn = document.createElement('button');
+                audioBtn.innerHTML = '📞';
+                audioBtn.className = 'text-sm hover:bg-green-600 p-1 rounded';
+                audioBtn.title = 'Join met audio';
+                audioBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    joinCallRoomWithAudio(room.slug, room.name);
+                };
+
+                joinButtons.appendChild(videoBtn);
+                joinButtons.appendChild(audioBtn);
+
+                div.appendChild(nameDiv);
+                div.appendChild(joinButtons);
+                li.appendChild(div);
+                callRoomsList.appendChild(li);
+            });
+        }
+
+        function joinCallRoomWithVideo(slug, name) {
+            console.log('Joining call room with video:', slug, name);
+            if (callManager && typeof callManager.joinCallRoom === 'function') {
+                document.getElementById('call-room-name').textContent = name;
+                callManager.joinCallRoom(slug, 'video');
+            } else {
+                console.error('CallManager not initialized');
+                alert('Call functionaliteit is niet beschikbaar');
+            }
+        }
+
+        function joinCallRoomWithAudio(slug, name) {
+            console.log('Joining call room with audio:', slug, name);
+            if (callManager && typeof callManager.joinCallRoom === 'function') {
+                document.getElementById('call-room-name').textContent = name;
+                callManager.joinCallRoom(slug, 'audio');
+            } else {
+                console.error('CallManager not initialized');
+                alert('Call functionaliteit is niet beschikbaar');
+            }
+        }
+
+let settingsInitialized = false;
+
+        function initializeSettingsButtons() {
+            if (settingsInitialized) {
+                updateThemeButtons();
+                return;
+            }
+
+            // Setup theme buttons
+            const darkBtn = document.getElementById('theme-dark-btn');
+            const lightBtn = document.getElementById('theme-light-btn');
+
+            darkBtn.onclick = () => {
+                setTheme('dark');
+            };
+            lightBtn.onclick = () => {
+                setTheme('light');
+            };
+
+            // Avatar upload
+            document.getElementById('avatar-upload').addEventListener('change', handleAvatarUpload);
+
+            settingsInitialized = true;
+            updateThemeButtons();
+        }
+
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+
+            // Update body classes
+            const body = document.body;
+            if (theme === 'light') {
+                body.style.backgroundColor = '#f3f4f6';
+                body.style.color = '#111827';
+            } else {
+                body.style.backgroundColor = '#111827';
+                body.style.color = '#f3f4f6';
+            }
+
+            updateThemeButtons();
+        }
+
+        function updateThemeButtons() {
+            const theme = document.documentElement.getAttribute('data-theme');
+            const darkBtn = document.getElementById('theme-dark-btn');
+            const lightBtn = document.getElementById('theme-light-btn');
+
+            if (!darkBtn || !lightBtn) return;
+
+            // Reset both buttons first
+            darkBtn.className = 'px-4 py-2 rounded-lg font-semibold transition duration-150';
+            lightBtn.className = 'px-4 py-2 rounded-lg font-semibold transition duration-150';
+
+            if (theme === 'dark') {
+                darkBtn.className += ' bg-indigo-600 text-white';
+                lightBtn.className += ' bg-gray-700 text-gray-300 hover:bg-gray-600';
+            } else {
+                lightBtn.className += ' bg-indigo-600 text-white';
+                darkBtn.className += ' bg-gray-700 text-gray-300 hover:bg-gray-600';
+            }
+        }
+
+        async function handleAvatarUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/profile/avatar', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('settings-avatar-preview').src = data.avatar_url;
+                    document.getElementById('user-avatar').src = data.avatar_url;
+                    alert('Avatar uploaded successfully!');
+                }
+            } catch (error) {
+                console.error('Error uploading avatar:', error);
+                alert('Failed to upload avatar');
+            }
+        }
+
+        function openSettings() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+            initializeSettingsButtons();
+        }
+
+        function closeSettings() {
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        async function saveSettings() {
+            const theme = document.documentElement.getAttribute('data-theme');
+            const notificationsEnabled = document.getElementById('notifications-toggle').checked;
+
+            try {
+                const response = await fetch('/api/profile/settings', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        theme_preference: theme,
+                        notifications_enabled: notificationsEnabled
+                    })
+                });
+
+                if (response.ok) {
+                    alert('Settings saved successfully!');
+                    closeSettings();
+
+                    // Request notification permission if enabled
+                    if (notificationsEnabled && notificationManager) {
+                        notificationManager.requestPermission();
+                    }
+                }
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                alert('Failed to save settings');
+            }
+        }
+
+        function openCreateRoom() {
+            document.getElementById('create-room-modal').classList.remove('hidden');
+
+            // Add event listeners for room type radio buttons
+            const radioButtons = document.querySelectorAll('input[name="room-type"]');
+            radioButtons.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    const callRoomOptions = document.getElementById('call-room-options');
+                    if (this.value === 'call') {
+                        callRoomOptions.classList.remove('hidden');
+                    } else {
+                        callRoomOptions.classList.add('hidden');
+                    }
+                });
+            });
+        }
+
+        function closeCreateRoom() {
+            document.getElementById('create-room-modal').classList.add('hidden');
+            document.getElementById('room-name').value = '';
+            document.getElementById('room-slug').value = '';
+            document.querySelector('input[name="room-type"][value="chat"]').checked = true;
+            document.getElementById('call-room-options').classList.add('hidden');
+        }
+
+        async function openInviteModal() {
+            document.getElementById('invite-modal').classList.remove('hidden');
+
+            // Load available users
+            try {
+                const response = await fetch('/api/users');
+                if (response.ok) {
+                    const users = await response.json();
+                    const availableUsersDiv = document.getElementById('available-users');
+                    availableUsersDiv.innerHTML = '';
+
+                    users.forEach(user => {
+                        if (user.username !== username) {
+                            const userBtn = document.createElement('button');
+                            userBtn.type = 'button';
+                            userBtn.className = 'w-full text-left p-2 bg-gray-700 rounded hover:bg-gray-600 transition';
+                            userBtn.textContent = user.username;
+                            userBtn.onclick = () => {
+                                document.getElementById('invite-username').value = user.username;
+                            };
+                            availableUsersDiv.appendChild(userBtn);
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        function closeInviteModal() {
+            document.getElementById('invite-modal').classList.add('hidden');
+            document.getElementById('invite-username').value = '';
+        }
+
+        async function inviteUser() {
+            const usernameToInvite = document.getElementById('invite-username').value.trim();
+
+            if (!usernameToInvite) {
+                alert('Voer een gebruikersnaam in');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/rooms/${roomSlug}/invite`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ username: usernameToInvite })
+                });
+
+                if (response.ok) {
+                    alert(`${usernameToInvite} is uitgenodigd!`);
+                    closeInviteModal();
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Failed to invite user');
+                }
+            } catch (error) {
+                console.error('Error inviting user:', error);
+                alert('Failed to invite user');
+            }
+        }
+
+        async function createRoom() {
+            const name = document.getElementById('room-name').value.trim();
+            const slug = document.getElementById('room-slug').value.trim();
+            const roomType = document.querySelector('input[name="room-type"]:checked').value;
+
+            if (!name || !slug) {
+                alert('Vul beide velden in');
+                return;
+            }
+
+            try {
+                if (roomType === 'call') {
+                    // Create call room
+                    const isPublic = document.getElementById('call-room-public').checked;
+                    const response = await fetch('/api/call-rooms', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ name, slug, is_public: isPublic })
+                    });
+
+                    if (response.ok) {
+                        alert('Call room aangemaakt!');
+                        closeCreateRoom();
+                        await loadCallRooms();
+                    } else {
+                        const error = await response.json();
+                        alert(error.detail || 'Failed to create call room');
+                    }
+                } else {
+                    // Create chat room
+                    const response = await fetch('/api/rooms', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ name, slug })
+                    });
+
+                    if (response.ok) {
+                        alert('Chat room aangemaakt!');
+                        closeCreateRoom();
+                        await loadRooms();
+                    } else {
+                        const error = await response.json();
+                        alert(error.detail || 'Failed to create room');
+                    }
+                }
+            } catch (error) {
+                console.error('Error creating room:', error);
+                alert('Failed to create room');
+            }
+        }
+
+        // Reply functionality
+        function setReplyContext(messageId, username, content) {
+            replyToMessageId = messageId;
+            document.getElementById('reply-context').classList.remove('hidden');
+            document.getElementById('reply-username').textContent = username;
+            document.getElementById('reply-content').textContent = content;
+            messageInput.focus();
+        }
+
+        function cancelReply() {
+            replyToMessageId = null;
+            document.getElementById('reply-context').classList.add('hidden');
+        }
+
+        // File upload functionality
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Check file size (500MB = 500 * 1024 * 1024 bytes)
+            const maxSize = 500 * 1024 * 1024;
+            if (file.size > maxSize) {
+                alert(`Bestand is te groot! Maximum: 500MB. Jouw bestand: ${(file.size / (1024 * 1024)).toFixed(2)}MB`);
+                event.target.value = '';
+                return;
+            }
+
+            // Store file temporarily
+            pendingFile = file;
+
+            // Show preview
+            showFilePreview(file);
+
+            // Focus on message input
+            messageInput.focus();
+
+            // Clear file input
+            event.target.value = '';
+        }
+
+        function showFilePreview(file) {
+            const container = document.getElementById('file-preview-container');
+            const content = document.getElementById('file-preview-content');
+
+            // Format file size
+            const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+            const sizeText = sizeInMB < 1 ? `${(file.size / 1024).toFixed(2)} KB` : `${sizeInMB} MB`;
+
+            // Create preview based on file type
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    content.innerHTML = `
+                        <img src="${e.target.result}" class="h-20 w-20 object-cover rounded border-2 border-gray-500" />
+                        <div>
+                            <div class="text-sm font-semibold text-gray-200">${file.name}</div>
+                            <div class="text-xs text-gray-400">${sizeText}</div>
+                        </div>
+                    `;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                content.innerHTML = `
+                    <div class="h-20 w-20 bg-gray-500 rounded flex items-center justify-center text-3xl border-2 border-gray-500">
+                        📄
+                    </div>
+                    <div>
+                        <div class="text-sm font-semibold text-gray-200">${file.name}</div>
+                        <div class="text-xs text-gray-400">${sizeText}</div>
+                    </div>
+                `;
+            }
+
+            container.classList.remove('hidden');
+        }
+
+        function clearFilePreview() {
+            pendingFile = null;
+            document.getElementById('file-preview-container').classList.add('hidden');
+            document.getElementById('file-preview-content').innerHTML = '';
+        }
+
+        async function handleFileUploadWithMessage(messageText) {
+            if (!pendingFile) return;
+
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = 'Bestand uploaden...';
+            statusElement.className = 'text-sm text-yellow-500';
+
+            const formData = new FormData();
+            formData.append('file', pendingFile);
+
+            // Add message text if provided
+            if (messageText) {
+                formData.append('content', messageText);
+            }
+
+            try {
+                const response = await fetch(`/api/rooms/${roomSlug}/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    statusElement.textContent = 'Verbonden';
+                    statusElement.className = 'text-sm text-green-500';
+
+                    // Clear input and preview
+                    messageInput.value = '';
+                    clearFilePreview();
+
+                    // Clear reply context
+                    cancelReply();
+
+                    // Stop typing indicator
+                    if (typingIndicator) {
+                        typingIndicator.stopTyping();
+                    }
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Bestand uploaden mislukt');
+                    statusElement.textContent = 'Verbonden';
+                    statusElement.className = 'text-sm text-green-500';
+                }
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                alert('Bestand uploaden mislukt');
+                statusElement.textContent = 'Verbonden';
+                statusElement.className = 'text-sm text-green-500';
+            }
+        }
+
+        // Message search functionality
+        async function searchMessages() {
+            const query = document.getElementById('search-input').value.trim();
+
+            if (!query || query.length < 2) {
+                alert('Voer minimaal 2 karakters in om te zoeken');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/rooms/${roomSlug}/search?q=${encodeURIComponent(query)}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displaySearchResults(data.results, data.count);
+                } else {
+                    const error = await response.json();
+                    alert(error.detail || 'Search failed');
+                }
+            } catch (error) {
+                console.error('Error searching messages:', error);
+                alert('Search failed');
+            }
+        }
+
+        function displaySearchResults(results, count) {
+            const resultsContainer = document.getElementById('search-results');
+            const resultsList = document.getElementById('search-results-list');
+            const countSpan = document.getElementById('search-count');
+
+            countSpan.textContent = `${count} resultaten gevonden`;
+            resultsList.innerHTML = '';
+
+            if (results.length === 0) {
+                resultsList.innerHTML = '<div class="text-sm text-gray-400 italic">Geen berichten gevonden</div>';
+            } else {
+                results.forEach(result => {
+                    const resultDiv = document.createElement('div');
+                    resultDiv.className = 'p-2 bg-gray-600 rounded hover:bg-gray-500 cursor-pointer transition-colors';
+                    resultDiv.onclick = () => {
+                        scrollToMessage(result.id);
+                        closeSearch();
+                    };
+
+                    const timestamp = new Date(result.timestamp);
+                    const timeStr = timestamp.toLocaleString('nl-NL', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+
+                    resultDiv.innerHTML = `
+                        <div class="flex items-center space-x-2 mb-1">
+                            <img src="${result.avatar_url || '/static/default-avatar.svg'}" class="w-5 h-5 rounded-full">
+                            <span class="text-sm font-semibold text-indigo-300">${result.username}</span>
+                            <span class="text-xs text-gray-400">${timeStr}</span>
+                        </div>
+                        <div class="text-sm text-gray-200">${result.content}</div>
+                    `;
+
+                    resultsList.appendChild(resultDiv);
+                });
+            }
+
+            resultsContainer.classList.remove('hidden');
+        }
+
+        function closeSearch() {
+            document.getElementById('search-results').classList.add('hidden');
+            document.getElementById('search-input').value = '';
+        }
+
+        // Scroll to specific message and highlight it
+        function scrollToMessage(messageId) {
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (messageElement) {
+                // Scroll to the message
+                messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Highlight the message temporarily
+                messageElement.classList.add('ring-2', 'ring-yellow-400');
+                setTimeout(() => {
+                    messageElement.classList.remove('ring-2', 'ring-yellow-400');
+                }, 2000);
+            } else {
+                console.log('Bericht niet gevonden in huidige chat');
+            }
+        }
+
+        // Allow Enter key to search
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        searchMessages();
+                    }
+                });
+            }
+        });
+
+        // Logout functie
+        function logout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('username');
+            // Clear encryption keys
+            if (cryptoManager) {
+                cryptoManager.clearKeys();
+            }
+            window.location.href = '/login';
+        }
+
+        // Initialize call manager when WebSocket is connected
+        function initializeCallManager() {
+            if (ws && !callManager) {
+                try {
+                    if (typeof CallManager !== 'undefined') {
+                        callManager = new CallManager(ws, username);
+                        console.log('✅ CallManager initialized');
+                    } else {
+                        console.warn('CallManager class not available');
+                    }
+                } catch (error) {
+                    console.error('Error initializing CallManager:', error);
+                }
+            }
+        }
+
+        // Start video call with user
+        async function startVideoCall(recipientUsername) {
+            console.log('Starting video call to:', recipientUsername);
+            if (!callManager) {
+                initializeCallManager();
+            }
+
+            if (!callManager) {
+                alert('Video calls zijn momenteel niet beschikbaar. Herlaad de pagina en probeer opnieuw.');
+                return;
+            }
+
+            try {
+                await callManager.startCall(recipientUsername, 'video');
+            } catch (error) {
+                console.error('Error starting video call:', error);
+                alert('Kon video oproep niet starten: ' + error.message);
+            }
+        }
+
+        // Start audio call with user
+        async function startAudioCall(recipientUsername) {
+            console.log('Starting audio call to:', recipientUsername);
+            if (!callManager) {
+                initializeCallManager();
+            }
+
+            if (!callManager) {
+                alert('Spraak oproepen zijn momenteel niet beschikbaar. Herlaad de pagina en probeer opnieuw.');
+                return;
+            }
+
+            try {
+                await callManager.startCall(recipientUsername, 'audio');
+            } catch (error) {
+                console.error('Error starting audio call:', error);
+                alert('Kon spraak oproep niet starten: ' + error.message);
+            }
+        }
+
+        // Toggle mute
+        function toggleMute() {
+            if (callManager) {
+                const isMuted = callManager.toggleMute();
+                document.getElementById('mute-icon').textContent = isMuted ? '🔇' : '🎤';
+            }
+        }
+
+        // Toggle video
+        function toggleVideoCall() {
+            if (callManager) {
+                const isVideoOff = callManager.toggleVideo();
+                document.getElementById('video-icon').textContent = isVideoOff ? '📹❌' : '📹';
+            }
+        }
+
+        // End call from UI
+        function endCallFromUI() {
+            if (callManager) {
+                callManager.leaveCallRoom();
+            }
+        }
+    </script>
+
+    <!-- Video/Voice Call Modal -->
+    <div id="call-modal" class="hidden fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-6xl w-full mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">
+                        <span id="call-room-name">Call Room</span>
+                    </h2>
+                    <p id="call-status" class="text-gray-400">Verbinden...</p>
+                </div>
+                <div class="text-sm text-gray-400">
+                    <span id="participants-count">0 deelnemers</span>
+                </div>
+            </div>
+
+            <!-- Video grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                <!-- Local video -->
+                <div class="bg-gray-900 rounded-lg overflow-hidden aspect-video relative">
+                    <video id="local-video" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                    <div class="absolute bottom-2 left-2 bg-black bg-opacity-50 px-2 py-1 rounded text-xs text-white">
+                        Jij (eigen camera)
+                    </div>
+                </div>
+
+                <!-- Remote videos grid - dynamically populated -->
+                <div id="remote-videos-grid" class="contents">
+                    <!-- Remote video elements will be added here dynamically -->
+                </div>
+            </div>
+
+            <!-- Call controls -->
+            <div class="flex justify-center space-x-4">
+                <button
+                    id="mute-btn"
+                    onclick="toggleMute()"
+                    class="p-4 bg-gray-700 rounded-full hover:bg-gray-600 transition"
+                    title="Microfoon dempen"
+                >
+                    <span id="mute-icon">🎤</span>
+                </button>
+
+                <button
+                    id="video-btn"
+                    onclick="toggleVideoCall()"
+                    class="p-4 bg-gray-700 rounded-full hover:bg-gray-600 transition"
+                    title="Camera uit/aan"
+                >
+                    <span id="video-icon">📹</span>
+                </button>
+
+                <button
+                    onclick="endCallFromUI()"
+                    class="p-4 bg-red-600 rounded-full hover:bg-red-700 transition"
+                    title="Call verlaten"
+                >
+                    📞
+                </button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
