@@ -361,7 +361,9 @@
         // --- Configuratie ---
         // Haalt de room_slug op uit de URL (We gaan /chat/{room_slug} gebruiken)
         const roomSlug = window.location.pathname.split('/').pop() || 'general';
-        const ws_url = `ws://${window.location.host}/api/ws/chat/${roomSlug}`;
+        // Use wss:// for HTTPS, ws:// for HTTP
+        const ws_protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws_url = `${ws_protocol}//${window.location.host}/api/ws/chat/${roomSlug}`;
 
         // --- DOM Elementen ---
         const messageInput = document.getElementById('message-input');
