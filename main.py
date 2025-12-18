@@ -5,6 +5,9 @@ from fastapi.staticfiles import StaticFiles
 from app.database.database import engine, Base
 from app.api import auth, chat, pages, direct_messages, profile, rooms, files, call_rooms
 
+laptop = "127.0.0.1"
+vps = "0.0.0.0"
+
 app = FastAPI(title="Modern Real-Time Chat App", description="Backend met FastAPI, DB en WebSockets.")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -25,4 +28,4 @@ def read_root():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True)
+    uvicorn.run("main:app", host=laptop, port=5000, reload=True)
