@@ -36,11 +36,19 @@ def get_all_rooms(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Get default public rooms (general and dev-team)
+    default_rooms = db.query(Room).filter(Room.slug.in_(['general', 'dev-team'])).all()
+
     # Get rooms where user is a member
     room_memberships = db.query(RoomMember).filter(RoomMember.user_id == user.id).all()
-    rooms = [membership.room for membership in room_memberships]
+    member_rooms = [membership.room for membership in room_memberships]
 
-    return rooms
+    # Combine default rooms with member rooms (avoid duplicates)
+    all_rooms = {room.id: room for room in default_rooms}
+    for room in member_rooms:
+        all_rooms[room.id] = room
+
+    return list(all_rooms.values())
 
 
 @router.post("/rooms", status_code=status.HTTP_201_CREATED)
