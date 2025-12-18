@@ -21,8 +21,10 @@ async def websocket_endpoint(
     room_slug: str,
     db: Session = Depends(get_db)
 ):
+    print(f"[WS] New connection attempt to room: {room_slug}")
     # Accept the connection first to receive data
     await websocket.accept()
+    print(f"[WS] Connection accepted, waiting for auth...")
 
     client_username = None
 
@@ -30,6 +32,7 @@ async def websocket_endpoint(
         # Receive the token from the client
         auth_message = await websocket.receive_json()
         token = auth_message.get("token")
+        print(f"[WS] Received auth message, token present: {bool(token)}")
 
         if not token:
             await websocket.send_text("Authentication failed: No token provided")
@@ -43,11 +46,14 @@ async def websocket_endpoint(
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             client_username = payload.get("sub")
+            print(f"[WS] Token decoded, username: {client_username}")
             if not client_username:
+                print("[WS] No username in token")
                 await websocket.send_text("Authentication failed: Invalid token")
                 await websocket.close()
                 return
-        except JWTError:
+        except JWTError as e:
+            print(f"[WS] JWT Error: {e}")
             await websocket.send_text("Authentication failed: Invalid token")
             await websocket.close()
             return
@@ -55,9 +61,12 @@ async def websocket_endpoint(
         # Verify user exists
         user = chat_crud.get_user_by_username(db, client_username)
         if not user:
+            print(f"[WS] User not found: {client_username}")
             await websocket.send_text("Authentication failed: User not found")
             await websocket.close()
             return
+
+        print(f"[WS] User {client_username} authenticated successfully")
 
         # Update user online status
         user.is_online = True
@@ -67,6 +76,7 @@ async def websocket_endpoint(
 
         # Connect to the room
         await manager.connect(websocket, room_slug, client_username)
+        print(f"[WS] {client_username} connected to room {room_slug}")
 
         # Systeemmelding
         join_message = f"**{client_username}** is de chat binnengekomen."
@@ -74,6 +84,7 @@ async def websocket_endpoint(
 
         # Broadcast online status update
         online_users = manager.get_online_users()
+        print(f"[WS] Online users: {online_users}")
         await manager.broadcast(
             f'{{"type":"online_status","online_users":{online_users}}}',
             room_slug
@@ -193,6 +204,9 @@ async def websocket_endpoint(
         )
 
     except Exception as e:
+        print(f"[ERROR] WebSocket error for {client_username}: {e}")
+        import traceback
+        traceback.print_exc()
         manager.disconnect(websocket, room_slug, client_username)
         if client_username:
             user = chat_crud.get_user_by_username(db, client_username)
@@ -200,5 +214,3 @@ async def websocket_endpoint(
                 user.is_online = False
                 user.last_seen = datetime.utcnow()
                 db.commit()
-        # Optioneel: log de fout
-        pass
