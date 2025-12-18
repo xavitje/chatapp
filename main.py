@@ -53,4 +53,6 @@ def read_root():
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host=vps, port=5000, reload=True)
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    uvicorn.run("main:app", host=vps, port=port, reload=False)
