@@ -84,14 +84,16 @@
             <ul id="call-rooms-list" class="space-y-2 mb-6">
                 <!-- Call rooms will be populated here -->
             </ul>
+            <h3 class="text-sm font-semibold text-gray-400 mb-2">ONLINE GEBRUIKERS</h3>
+            <ul id="online-users-list" class="space-y-2 mb-6">
+                <!-- Online users will be populated here -->
+            </ul>
         </div>
-        <div class="mt-auto pt-4 border-t border-gray-700 space-y-2">
+        <div class="mt-auto pt-4 border-t border-gray-700">
             <div class="flex items-center space-x-2">
                 <img id="user-avatar" src="/static/default-avatar.svg" class="w-8 h-8 rounded-full" alt="Avatar">
                 <p class="text-sm font-semibold">Ingelogd als: <span id="username-display" class="text-indigo-400">Gast</span></p>
             </div>
-            <button onclick="window.location.href='/chat/general'" class="w-full p-2 bg-indigo-600 rounded-lg text-sm hover:bg-indigo-700 transition">Terug naar Chat</button>
-            <button onclick="logout()" class="w-full p-2 bg-red-600 rounded-lg text-sm hover:bg-red-700 transition">Uitloggen</button>
         </div>
     </div>
 
@@ -523,6 +525,66 @@
             });
         }
 
+        // Load online users
+        async function fetchOnlineUsers() {
+            try {
+                const response = await fetch('/api/users');
+                if (response.ok) {
+                    const users = await response.json();
+                    renderOnlineUsersList(users);
+                }
+            } catch (error) {
+                console.error('Error fetching online users:', error);
+            }
+        }
+
+        function renderOnlineUsersList(users) {
+            const onlineUsersList = document.getElementById('online-users-list');
+            if (!onlineUsersList) return;
+
+            onlineUsersList.innerHTML = '';
+
+            // Filter to show only online users
+            const onlineUsers = users.filter(user => user.is_online);
+
+            if (onlineUsers.length === 0) {
+                const emptyLi = document.createElement('li');
+                emptyLi.className = 'text-sm text-gray-500 italic px-2';
+                emptyLi.textContent = 'Geen online gebruikers';
+                onlineUsersList.appendChild(emptyLi);
+                return;
+            }
+
+            onlineUsers.forEach(user => {
+                const li = document.createElement('li');
+                li.setAttribute('data-username', user.username);
+
+                const div = document.createElement('div');
+                div.className = 'flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-700 transition duration-150';
+
+                // Avatar
+                const img = document.createElement('img');
+                img.src = user.avatar_url || '/static/default-avatar.svg';
+                img.className = 'w-6 h-6 rounded-full';
+                img.alt = user.username;
+
+                // Status dot (always green for online users)
+                const statusDot = document.createElement('div');
+                statusDot.className = 'w-2 h-2 rounded-full bg-green-500';
+
+                // Username
+                const span = document.createElement('span');
+                span.className = 'text-sm flex-1';
+                span.textContent = user.username;
+
+                div.appendChild(img);
+                div.appendChild(statusDot);
+                div.appendChild(span);
+                li.appendChild(div);
+                onlineUsersList.appendChild(li);
+            });
+        }
+
         // Modal functions
         function openCreateRoomModal() {
             alert('Ga naar een chat kamer om een nieuwe kamer aan te maken');
@@ -538,6 +600,10 @@
         loadUserProfile();
         loadRooms();
         loadCallRooms();
+        fetchOnlineUsers();
+
+        // Refresh online users every 10 seconds
+        setInterval(fetchOnlineUsers, 10000);
 
         // Initialize emoji picker
         window.addEventListener('load', () => {

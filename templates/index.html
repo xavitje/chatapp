@@ -120,14 +120,11 @@
                 <!-- Online users will be populated here -->
             </ul>
         </div>
-        <div class="mt-auto pt-4 border-t border-gray-700 space-y-2">
+        <div class="mt-auto pt-4 border-t border-gray-700">
             <div class="flex items-center space-x-2">
                 <img id="user-avatar" src="/static/default-avatar.svg" class="w-8 h-8 rounded-full" alt="Avatar">
                 <p class="text-sm font-semibold">Ingelogd als: <span id="username-display" class="text-indigo-400">Gast</span></p>
             </div>
-            <button onclick="openSettings()" class="w-full p-2 bg-indigo-600 rounded-lg text-sm hover:bg-indigo-700 transition">⚙️ Instellingen</button>
-            <button onclick="openCreateRoom()" class="w-full p-2 bg-green-600 rounded-lg text-sm hover:bg-green-700 transition">➕ Kamer Aanmaken</button>
-            <button onclick="logout()" class="w-full p-2 bg-red-600 rounded-lg text-sm hover:bg-red-700 transition">Uitloggen</button>
         </div>
     </div>
 
@@ -850,7 +847,10 @@
 
             onlineUsersList.innerHTML = '';
 
-            if (users.length === 0) {
+            // Filter to show only online users
+            const onlineUsers = users.filter(user => user.is_online);
+
+            if (onlineUsers.length === 0) {
                 const emptyLi = document.createElement('li');
                 emptyLi.className = 'text-sm text-gray-500 italic px-2';
                 emptyLi.textContent = 'Geen online gebruikers';
@@ -858,7 +858,7 @@
                 return;
             }
 
-            users.forEach(user => {
+            onlineUsers.forEach(user => {
                 const li = document.createElement('li');
                 li.setAttribute('data-username', user.username);
 
