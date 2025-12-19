@@ -16,4 +16,5 @@ EXPOSE 5000
 
 ENV PORT=5000
 
-CMD ["python", "main.py"]
+# Use uvicorn directly with websocket support
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "5000", "--proxy-headers", "--forwarded-allow-ips", "*"]
