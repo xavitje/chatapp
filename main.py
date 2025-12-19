@@ -50,6 +50,9 @@ app.include_router(pages.router)
 @app.get("/")
 def read_root():
     return RedirectResponse(url="/login")
+@app.route('/ads.txt')
+def ads_txt():
+    return "google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0", 200, {'Content-Type': 'text/plain'}
 
 
 if __name__ == "__main__":
